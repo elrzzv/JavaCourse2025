@@ -1,0 +1,18 @@
+# Компиляция
+javac Huffman.java
+
+# Создание тестовых файлов
+java Huffman -test
+
+# Сжатие файла
+java Huffman -c test1.txt test1_compressed.bin
+java Huffman -c test2.txt test2_compressed.bin
+java Huffman -c Huffman.class test3_compressed.bin
+
+# Распаковка файла
+java Huffman -d test1_compressed.bin test1_decompressed.txt
+java Huffman -d test2_compressed.bin test2_decompressed.txt
+java Huffman -d test3_compressed.bin test3_decompressed.txt
+
+# Интерактивная демонстрация
+java Huffman -demo
