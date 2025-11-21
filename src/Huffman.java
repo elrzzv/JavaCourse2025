@@ -9,20 +9,19 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.nio.file.Path;
 
-//узел дерева
 class HuffmanNode implements Comparable<HuffmanNode> {
-    char character;
+    Byte character;
     int frequency;
     HuffmanNode left, right;
 
-    public HuffmanNode(char character, int frequency) {
+    public HuffmanNode(Byte character, int frequency) {
         this.character = character;
         this.frequency = frequency;
         this.left = null;
         this.right = null;
     }
 
-    public HuffmanNode(char character, int frequency, HuffmanNode left, HuffmanNode right) {
+    public HuffmanNode(Byte character, int frequency, HuffmanNode left, HuffmanNode right) {
         this.character = character;
         this.frequency = frequency;
         this.left = left;
@@ -40,40 +39,36 @@ class HuffmanNode implements Comparable<HuffmanNode> {
 }
 
 public class Huffman {
-    private final Map<Character, String> huffmanCodes = new HashMap<Character, String>();
-    private final Map<Character, Integer> frequencyMap = new HashMap<Character, Integer>();
+    private Map<Byte, String> huffmanCodes = new HashMap<>();
+    private Map<Byte, Integer> frequencyMap = new HashMap<>();
     private HuffmanNode root;
 
-    //дерево
     public void buildHuffmanTree(byte[] data) {
         huffmanCodes.clear();
         frequencyMap.clear();
-        //считаем частоты для байтов
+
         for (byte b : data) {
-            char c = (char) (b & 0xFF); // Преобразуем byte в char (0-255)
-            frequencyMap.put(c, frequencyMap.getOrDefault(c, 0) + 1);
+            frequencyMap.put(b, frequencyMap.getOrDefault(b, 0) + 1);
         }
 
+        System.out.println("Unique bytes: " + frequencyMap.size());
+
         if (frequencyMap.size() == 1) {
-            char singleChar = frequencyMap.keySet().iterator().next();
-            root = new HuffmanNode(singleChar, frequencyMap.get(singleChar));
-            huffmanCodes.put(singleChar, "0");
+            Byte singleByte = frequencyMap.keySet().iterator().next();
+            root = new HuffmanNode(singleByte, frequencyMap.get(singleByte));
+            huffmanCodes.put(singleByte, "0");
             return;
         }
 
-        //приоритетная очередь
-        PriorityQueue<HuffmanNode> pq = new PriorityQueue<HuffmanNode>();
-        for (Map.Entry<Character, Integer> entry : frequencyMap.entrySet()) {
+        PriorityQueue<HuffmanNode> pq = new PriorityQueue<>();
+        for (Map.Entry<Byte, Integer> entry : frequencyMap.entrySet()) {
             pq.add(new HuffmanNode(entry.getKey(), entry.getValue()));
         }
 
-        //строим дерево
         while (pq.size() > 1) {
             HuffmanNode left = pq.poll();
             HuffmanNode right = pq.poll();
-
-            HuffmanNode parent = new HuffmanNode('\0',
-                    left.frequency + right.frequency, left, right);
+            HuffmanNode parent = new HuffmanNode(null, left.frequency + right.frequency, left, right);
             pq.add(parent);
         }
 
@@ -81,7 +76,6 @@ public class Huffman {
         generateCodes(root, "");
     }
 
-    //генерим коды
     private void generateCodes(HuffmanNode node, String code) {
         if (node == null) return;
 
@@ -93,32 +87,31 @@ public class Huffman {
         generateCodes(node.right, code + "1");
     }
 
-    //кодирование
     public String encode(byte[] data) {
         StringBuilder encoded = new StringBuilder();
         for (byte b : data) {
-            char c = (char) (b & 0xFF);
-            encoded.append(huffmanCodes.get(c));
+            encoded.append(huffmanCodes.get(b));
         }
+        System.out.println("Encoded bits: " + encoded.length());
         return encoded.toString();
     }
 
-    //декодирование
-    public String decode(String encodedText) {
-        //особый случай 1 символ
+    public byte[] decodeToBytes(String encodedText) {
+        System.out.println("Decoding bits: " + encodedText.length());
+
         if (root != null && root.isLeaf()) {
-            char singleChar = root.character;
-            StringBuilder decoded = new StringBuilder();
-            for (int i = 0; i < encodedText.length(); i++) {
-                decoded.append(singleChar);
-            }
-            return decoded.toString();
+            Byte singleByte = root.character;
+            byte[] result = new byte[encodedText.length()];
+            Arrays.fill(result, singleByte);
+            return result;
         }
 
-        StringBuilder decoded = new StringBuilder();
+        List<Byte> decodedBytes = new ArrayList<>();
         HuffmanNode current = root;
 
-        for (char bit : encodedText.toCharArray()) {
+        for (int i = 0; i < encodedText.length(); i++) {
+            char bit = encodedText.charAt(i);
+
             if (bit == '0') {
                 current = current.left;
             } else {
@@ -126,165 +119,167 @@ public class Huffman {
             }
 
             if (current.isLeaf()) {
-                decoded.append(current.character);
+                decodedBytes.add(current.character);
                 current = root;
             }
         }
 
-        return decoded.toString();
-    }
-
-    public byte[] decodeToBytes(String encodedText) {
-        String decodedString = decode(encodedText);
-        byte[] result = new byte[decodedString.length()];
-        for (int i = 0; i < decodedString.length(); i++) {
-            result[i] = (byte) decodedString.charAt(i);
+        byte[] result = new byte[decodedBytes.size()];
+        for (int i = 0; i < decodedBytes.size(); i++) {
+            result[i] = decodedBytes.get(i);
         }
+
+        System.out.println("Decoded bytes: " + result.length);
         return result;
     }
 
-    //сжатие файла
-    public void compressFile(String inputFile, String outputFile) throws IOException {
-        // читаем текст как байты
-        byte[] data = Files.readAllBytes(Paths.get(inputFile));
-
-        // строим дерево
-        buildHuffmanTree(data);
-
-        // кодируем
-        String encoded = encode(data);
-
-        try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(outputFile))) {
-            // сохраняем частоты (чтобы восстановить дерево)
-            oos.writeObject(frequencyMap);
-
-            // сохраняем длину битовой строки
-            oos.writeInt(encoded.length());
-
-            // сохраняем сжатые данные (как байты)
-            byte[] compressed = toByteArray(encoded);
-            oos.write(compressed);
-        }
-    }
-
-    //распаковка файла
-    public void decompressFile(String inputFile, String outputFile) throws IOException, ClassNotFoundException {
-        try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(inputFile))) {
-            @SuppressWarnings("unchecked")
-            Map<Character, Integer> freq = (Map<Character, Integer>) ois.readObject();
-            this.frequencyMap.clear();
-            this.frequencyMap.putAll(freq);
-
-            // особый случай один символ
-            if (freq.size() == 1) {
-                char singleChar = freq.keySet().iterator().next();
-                root = new HuffmanNode(singleChar, freq.get(singleChar));
-                huffmanCodes.put(singleChar, "0");
-            } else {
-                // обычный случай
-                PriorityQueue<HuffmanNode> pq = new PriorityQueue<HuffmanNode>();
-                for (Map.Entry<Character, Integer> e : freq.entrySet()) {
-                    pq.add(new HuffmanNode(e.getKey(), e.getValue()));
-                }
-                while (pq.size() > 1) {
-                    HuffmanNode left = pq.poll();
-                    HuffmanNode right = pq.poll();
-                    pq.add(new HuffmanNode('\0', left.frequency + right.frequency, left, right));
-                }
-                root = pq.poll();
-                generateCodes(root, "");
-            }
-
-            // количество битов
-            int bitLength = ois.readInt();
-
-            // читаем оставшиеся байты
-            byte[] compressed = new byte[ois.available()];
-            ois.readFully(compressed);
-
-            // восстанавливаем битовую строку с точной длиной
-            String encoded = fromByteArray(compressed, bitLength);
-            byte[] decodedData = decodeToBytes(encoded);
-
-            Files.write(Paths.get(outputFile), decodedData);
-        }
-    }
-
-    // побитовая упаковка строки "010101..."
     private byte[] toByteArray(String bits) {
         int byteLength = (bits.length() + 7) / 8;
         byte[] result = new byte[byteLength];
+
         for (int i = 0; i < bits.length(); i++) {
             if (bits.charAt(i) == '1') {
-                result[i / 8] |= 1 << (7 - (i % 8));
+                result[i / 8] |= (1 << (7 - (i % 8)));
             }
         }
         return result;
     }
 
     private String fromByteArray(byte[] bytes, int bitLength) {
-        StringBuilder sb = new StringBuilder();
-        int bitsProcessed = 0;
+        StringBuilder sb = new StringBuilder(bitLength);
 
-        for (byte b : bytes) {
-            for (int i = 7; i >= 0; i--) {
-                if (bitsProcessed < bitLength) {
-                    sb.append((b >> i) & 1);
-                    bitsProcessed++;
-                } else {
-                    break;
-                }
+        for (int i = 0; i < bytes.length && sb.length() < bitLength; i++) {
+            byte b = bytes[i];
+            int bitsToRead = Math.min(8, bitLength - sb.length());
+
+            for (int j = 7; j >= 8 - bitsToRead; j--) {
+                sb.append((b >> j) & 1);
             }
-            if (bitsProcessed >= bitLength) break;
         }
+
+        if (sb.length() != bitLength) {
+            System.out.println("WARNING: Expected " + bitLength + " bits, got " + sb.length());
+        }
+
         return sb.toString();
     }
 
-    //создание тестовых файлов
-    public static void createTestFiles() throws IOException {
-        // Файл 1: 10 одинаковых символов
-        Files.write(Paths.get("test1.txt"), "1111111111".getBytes());
+    public void compressFile(String inputFile, String outputFile) throws IOException {
+        System.out.println("=== COMPRESSING " + inputFile + " ===");
+        byte[] data = Files.readAllBytes(Paths.get(inputFile));
+        System.out.println("Original size: " + data.length + " bytes");
 
-        // Файл 2: 20 байт, 3 символа (10,5,5)
+        buildHuffmanTree(data);
+        String encoded = encode(data);
+
+        try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(outputFile))) {
+            oos.writeObject(frequencyMap);
+            oos.writeInt(encoded.length());
+
+            byte[] compressed = toByteArray(encoded);
+            oos.write(compressed);
+
+            System.out.println("Compressed size: " + compressed.length + " bytes");
+            System.out.println("Bit length: " + encoded.length());
+        }
+        System.out.println("Compression completed\n");
+    }
+
+    public void decompressFile(String inputFile, String outputFile) throws IOException, ClassNotFoundException {
+        System.out.println("=== DECOMPRESSING " + inputFile + " ===");
+
+        try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(inputFile))) {
+            // читаем словарь частот
+            @SuppressWarnings("unchecked")
+            Map<Byte, Integer> freq = (Map<Byte, Integer>) ois.readObject();
+            System.out.println("Frequency map entries: " + freq.size());
+
+            this.frequencyMap = freq;
+            this.huffmanCodes = new HashMap<>();
+
+            // восстанавливаем дерево
+            if (freq.size() == 1) {
+                Byte singleByte = freq.keySet().iterator().next();
+                root = new HuffmanNode(singleByte, freq.get(singleByte));
+                huffmanCodes.put(singleByte, "0");
+                System.out.println("Single byte case");
+            } else {
+                PriorityQueue<HuffmanNode> pq = new PriorityQueue<>();
+                for (Map.Entry<Byte, Integer> e : freq.entrySet()) {
+                    pq.add(new HuffmanNode(e.getKey(), e.getValue()));
+                }
+                while (pq.size() > 1) {
+                    HuffmanNode left = pq.poll();
+                    HuffmanNode right = pq.poll();
+                    pq.add(new HuffmanNode(null, left.frequency + right.frequency, left, right));
+                }
+                root = pq.poll();
+                generateCodes(root, "");
+                System.out.println("Codes generated: " + huffmanCodes.size());
+            }
+
+            // читаем длину битов
+            int bitLength = ois.readInt();
+            System.out.println("Expected bit length: " + bitLength);
+
+            // читаем сжатые данные
+            byte[] compressed = ois.readAllBytes();
+            System.out.println("Compressed data bytes: " + compressed.length);
+
+            // восстанавливаем битовую строку
+            String encoded = fromByteArray(compressed, bitLength);
+            System.out.println("Recovered bits: " + encoded.length());
+
+            // декодируем
+            byte[] decodedData = decodeToBytes(encoded);
+            Files.write(Paths.get(outputFile), decodedData);
+
+            System.out.println("Decompression completed. Output: " + decodedData.length + " bytes\n");
+        }
+    }
+
+    public static void createTestFiles() throws IOException {
+        Files.write(Paths.get("test1.txt"), "1111111111".getBytes());
         Files.write(Paths.get("test2.txt"), "11111111112222233333".getBytes());
 
-        System.out.println("Test files created:");
-        System.out.println("- test1.txt (10 identical characters)");
-        System.out.println("- test2.txt (3 different characters)");
+        Path test3 = Paths.get("test3.class");
+        if (Files.exists(test3)) {
+            Files.delete(test3);
+        }
+        Files.copy(Paths.get("Huffman.class"), test3);
+
+        System.out.println("Test files created");
     }
 
     public static void main(String[] args) {
         if (args.length == 0) {
-            System.out.println("Huffman Coding - Command Line Tool");
+            System.out.println("Huffman Coding - Fixed Version");
             System.out.println("Usage:");
-            System.out.println("  java Huffman -c input.txt output.huff    # Compress");
-            System.out.println("  java Huffman -d input.huff output.txt    # Decompress");
-            System.out.println("  java Huffman -test                       # Create test files");
+            System.out.println("  java Huffman -c input output.huff");
+            System.out.println("  java Huffman -d input.huff output");
+            System.out.println("  java Huffman -test");
             return;
         }
 
         Huffman huffman = new Huffman();
 
         try {
-            if (args[0].equals("-c") || args[0].equals("--compress")) {
+            if (args[0].equals("-c")) {
                 if (args.length != 3) {
-                    System.out.println("Usage: java Huffman -c input.txt output.huff");
+                    System.out.println("Usage: java Huffman -c input output.huff");
                     return;
                 }
                 huffman.compressFile(args[1], args[2]);
-                System.out.println("File compressed: " + args[1] + " -> " + args[2]);
-            } else if (args[0].equals("-d") || args[0].equals("--decompress")) {
+            } else if (args[0].equals("-d")) {
                 if (args.length != 3) {
-                    System.out.println("Usage: java Huffman -d input.huff output.txt");
+                    System.out.println("Usage: java Huffman -d input.huff output");
                     return;
                 }
                 huffman.decompressFile(args[1], args[2]);
-                System.out.println("File decompressed: " + args[1] + " -> " + args[2]);
-            } else if (args[0].equals("-test") || args[0].equals("--test")) {
+            } else if (args[0].equals("-test")) {
                 createTestFiles();
             } else {
-                System.out.println("Unknown command: " + args[0]);
-                System.out.println("Use -c to compress, -d to decompress, -test to create test files");
+                System.out.println("Unknown command");
             }
         } catch (Exception e) {
             System.err.println("Error: " + e.getMessage());
