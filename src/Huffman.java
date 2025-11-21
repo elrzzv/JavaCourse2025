@@ -165,6 +165,15 @@ public class Huffman {
     }
 
     public void compressFile(String inputFile, String outputFile) throws IOException {
+
+        // автоматическое добавление в папку test для тестовых файлов
+        if (!inputFile.startsWith("tests/")) {
+            inputFile = "tests/" + inputFile;
+        }
+        if (!outputFile.startsWith("tests/")) {
+            outputFile = "tests/" + outputFile;
+        }
+
         System.out.println("=== COMPRESSING " + inputFile + " ===");
         byte[] data = Files.readAllBytes(Paths.get(inputFile));
         System.out.println("Original size: " + data.length + " bytes");
@@ -186,6 +195,15 @@ public class Huffman {
     }
 
     public void decompressFile(String inputFile, String outputFile) throws IOException, ClassNotFoundException {
+
+        // автоматическое добавление в папку test для тестовых файлов
+        if (!inputFile.startsWith("tests/")) {
+            inputFile = "tests/" + inputFile;
+        }
+        if (!outputFile.startsWith("tests/")) {
+            outputFile = "tests/" + outputFile;
+        }
+
         System.out.println("=== DECOMPRESSING " + inputFile + " ===");
 
         try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(inputFile))) {
@@ -239,16 +257,21 @@ public class Huffman {
     }
 
     public static void createTestFiles() throws IOException {
-        Files.write(Paths.get("test1.txt"), "1111111111".getBytes());
-        Files.write(Paths.get("test2.txt"), "11111111112222233333".getBytes());
+        Path testDir = Paths.get("tests");
+        if (!Files.exists(testDir)) {
+            Files.createDirectory(testDir);
+        }
 
-        Path test3 = Paths.get("test3.class");
+        Files.write(Paths.get("tests/test1.txt"), "1111111111".getBytes());
+        Files.write(Paths.get("tests/test2.txt"), "11111111112222233333".getBytes());
+
+        Path test3 = Paths.get("tests/test3.class");
         if (Files.exists(test3)) {
             Files.delete(test3);
         }
         Files.copy(Paths.get("Huffman.class"), test3);
 
-        System.out.println("Test files created");
+        System.out.println("Test files created in /test directory");
     }
 
     public static void main(String[] args) {
